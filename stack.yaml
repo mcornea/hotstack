@@ -117,3 +117,6 @@ outputs:
   vm02_ip:
     description: The floating IP of vm02
     value: { get_attr: [vm02_fip, ip] }
+  vm03_ip:
+    description: The IP of vm03
+    value: { get_attr: [vm03, ip] }

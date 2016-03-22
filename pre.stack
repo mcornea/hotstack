@@ -1,5 +1,7 @@
-glance image-create --name Fedora22 --file Fedora-Cloud-Base-22-20150521.x86_64.qcow2  --disk-format qcow2 --container-format bare --is-public true --progress
+source ~/overcloudrc
+glance image-create --name Fedora22 --file ~/Fedora-Cloud-Base-22-20150521.x86_64.qcow2  --disk-format qcow2 --container-format bare --is-public true --progress
 nova keypair-add --pub_key ~/.ssh/id_rsa.pub userkey
+nova flavor-create --swap 2048 v1-1G-10G $(uuidgen -r) 1024 10 1
 
 neutron net-create external01 --provider:network_type vlan  --provider:physical_network datacentre  --provider:segmentation_id 101 --router:external
 neutron subnet-create --allocation-pool start=172.29.0.100,end=172.29.0.150 --gateway 172.29.0.254 --enable_dhcp=False external01 172.29.0.0/24
