@@ -1,0 +1,55 @@
+heat_template_version: 2013-05-23
+
+description: Template to do sanity check of a deployed Openstack
+
+parameters:
+  key_name:
+    type: string
+    description: Name of an existing key pair to use for the server
+    constraints:
+      - custom_constraint: nova.keypair
+  flavor:
+    type: string
+    description: Flavor for the server to be created
+    default: m1.small
+    constraints:
+      - custom_constraint: nova.flavor
+  image:
+    type: string
+    description: Image ID or image name to use for the server
+    constraints:
+      - custom_constraint: glance.image
+  tenantnet_ext_tagged:
+    type: string
+    description: name of the tagged external network
+    default: external01
+  vol_size:
+    type: number
+    description: The size of the Cinder volume
+    default: 1
+
+resources:
+  tenant_net_ext_tagged:
+    type: lib/tenant_network.yaml
+    properties:
+      public_network: { get_param: tenantnet_ext_tagged }
+
+  vm04:
+    type: lib/instance_withvol.yaml
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key_name }
+      tenant_network: { get_attr: [tenant_net_ext_tagged, name] }
+      vol_size: { get_param: vol_size }
+  vm04_fip:
+    type: lib/floating_ip.yaml
+    properties:
+      port: { get_attr: [vm04, port] }
+      public_network: { get_param: tenantnet_ext_tagged }
+
+
+outputs:
+  vm04_ip:
+    description: The floating IP of vm01
+    value: { get_attr: [vm04_fip, ip] }

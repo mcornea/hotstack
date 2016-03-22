@@ -1,0 +1,5 @@
+parameters:
+  vol_size: 2
+  flavor: v1-1G-5G
+  image: Fedora22
+  key_name: userkey 

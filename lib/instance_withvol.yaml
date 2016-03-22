@@ -78,8 +78,8 @@ resources:
             wc_notify: { get_attr: ['wh', 'curl_cli'] }
           template: |
             #!/bin/bash
-            mkfs.ext4 /dev/vdc
-            echo '/dev/vdc /mnt ext4     defaults        1 1' >> /etc/fstab
+            mkfs.ext4 /dev/vdb
+            echo '/dev/vdb /mnt ext4     defaults        1 1' >> /etc/fstab
             mount -a
             wc_notify --data-binary '{"status": "SUCCESS"}'
 

@@ -1,0 +1,75 @@
+source ~/overcloudrc
+case $1 in
+init)
+    glance image-create --name Fedora22 --file ~/Fedora-Cloud-Base-22-20150521.x86_64.qcow2  --disk-format qcow2 --container-format bare --is-public true --progress
+    nova keypair-add --pub_key ~/.ssh/id_rsa.pub userkey
+    nova flavor-create --swap 2048 v1-1G-10G $(uuidgen -r) 1024 10 1
+    swift upload test-container ~/instackenv.json 
+
+    neutron net-create external01 --provider:network_type vlan  --provider:physical_network datacentre  --provider:segmentation_id 101 --router:external
+    neutron subnet-create --allocation-pool start=172.29.0.100,end=172.29.0.150 --gateway 172.29.0.254 --enable_dhcp=False external01 172.29.0.0/24
+    neutron router-create router01
+    neutron router-gateway-set router01 external01
+
+    neutron net-create external02 --provider:network_type flat  --provider:physical_network datacentre --router:external
+    neutron subnet-create --allocation-pool start=172.29.1.100,end=172.29.1.150 --gateway 172.29.1.254 --enable_dhcp=False external02 172.29.1.0/24
+    neutron router-create router02
+    neutron router-gateway-set router02 external02
+
+    neutron net-create provider01 --provider:network_type vlan  --provider:physical_network tenantvlan  --provider:segmentation_id 201
+    neutron subnet-create --allocation-pool start=172.29.2.100,end=172.29.2.150 --gateway 172.29.2.254 provider01 172.29.2.0/24
+    ;;
+stack-create) 
+    heat stack-create -f stack.yaml -e env.yaml stack01
+    timeout_seconds=1200
+    elapsed_seconds=0
+    while true; do
+        STATUS=$(heat stack-list | grep stack01 | awk {'print $6'})
+        if [  "$STATUS" == "CREATE_COMPLETE" ]; then
+            break
+        fi
+        sleep 3
+        (( elapsed_seconds += 3 ))
+        if [ $elapsed_seconds -ge $timeout_seconds ]; then
+            echo "stack didn't get created"
+            break
+        fi
+    done
+    for instance in vm01 vm02 vm03; do
+    ip=$(heat output-show stack01 $instance\_ip | sed s/\"//g)
+    echo -n "$instance: "
+    ssh -q fedora@$ip 'df -hT | grep vdb'
+    done
+    ;;
+stack-delete) 
+    heat stack-delete stack01
+    ;;
+migrate)
+    instance=$(nova list | grep vm01 | awk {'print $4'})
+    host=$(nova show $instance | grep OS-EXT-SRV-ATTR:host | awk {'print $4'})
+    echo $host
+    ;;
+vm-create) 
+    heat stack-create -f vm.yaml -e vmenv.yaml vm04
+    timeout_seconds=1200
+    elapsed_seconds=0
+    while true; do
+        STATUS=$(heat stack-list | grep vm04 | awk {'print $6'})
+        if [  "$STATUS" == "CREATE_COMPLETE" ]; then
+            break
+        fi
+        sleep 3
+        (( elapsed_seconds += 3 ))
+        if [ $elapsed_seconds -ge $timeout_seconds ]; then
+            echo "vm didn't get created"
+            break
+        fi
+    done
+    ip=$(heat output-show vm04 vm04_ip | sed s/\"//g)
+    echo -n "vm04: "
+    ssh -q fedora@$ip 'df -hT | grep vdb'
+    ;;
+vm-delete)
+    heat stack-delete vm04
+    ;;
+esac
