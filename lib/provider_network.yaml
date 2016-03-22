@@ -1,0 +1,37 @@
+heat_template_version: 2013-05-23
+
+description: Template that creates a provider network.
+
+parameters:
+  network_name:
+    type: string
+    label: Network name or ID
+  network_type:
+    type: string
+    label: Network type
+    default: vlan
+  physical_network:
+    type: string
+    label: Physical network
+  segmentation_id: 
+    type: string
+    label: A string specifying the segmentation id for the network.
+  shared:
+    type: boolean
+    label: Whether this network should be shared across all tenants.
+    default: False
+
+resources:
+  network:
+    type: OS::Neutron::ProviderNet
+    properties:
+      name: {get_param: network_name}
+      network_type: {get_param: network_type}
+      physical_network: {get_param: physical_network}
+      segmentation_id: {get_param: segmentation_id}
+      shared: {get_param: shared}
+
+outputs:
+  network:
+    description: The provider network output.
+    value: { get_attr: [network, show] }

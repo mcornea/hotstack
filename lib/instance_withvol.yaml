@@ -1,0 +1,104 @@
+heat_template_version: 2013-05-23
+
+description: >
+  Template that creates a VM instance,assigns it 
+  a volume and formats and mounts the volume inside the VM
+
+parameters:
+  image:
+    type: string
+    description: >
+      Name or ID of the image to use for the instance.
+    constraints:
+      - custom_constraint: glance.image
+        description: Must identify an image known to Glance
+  flavor:
+    type: string
+    description: Flavor for the instance to be created
+    default: m1.small
+    constraints:
+      - custom_constraint: nova.flavor
+        description: Must be a flavor known to Nova
+  key_name:
+    type: string
+    description: Name of an existing key pair to use for the instance
+    constraints:
+      - custom_constraint: nova.keypair
+        description: Must name a public key (pair) known to Nova
+  tenant_network:
+    type: string
+    label: Private network name or ID
+    description: Network to attach instance to.
+    default: tenant-net
+  vol_size:
+    type: number
+    description: The size of the Cinder volume
+    default: 1
+
+resources:
+  wait_condition:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle: { get_resource: wh }
+      count: 1
+      timeout: 600
+
+  wh:
+    type: OS::Heat::WaitConditionHandle
+
+  server_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: server_security_group
+      rules:
+        - protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+
+  my_instance_port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: tenant_network }
+      security_groups:
+       - { get_resource: server_security_group }
+
+  my_instance:
+    type: OS::Nova::Server
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key_name }
+      networks:
+        - network: { get_param: tenant_network }
+      networks:
+        - port: { get_resource: my_instance_port }
+      user_data: 
+        str_replace:
+          params:
+            wc_notify: { get_attr: ['wh', 'curl_cli'] }
+          template: |
+            #!/bin/bash
+            mkfs.ext4 /dev/vdc
+            echo '/dev/vdc /mnt ext4     defaults        1 1' >> /etc/fstab
+            mount -a
+            wc_notify --data-binary '{"status": "SUCCESS"}'
+
+  my_vol:
+    type: OS::Cinder::Volume
+    properties:
+      size: { get_param: vol_size }
+
+  vol_att:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      instance_uuid: { get_resource: my_instance }
+      volume_id: { get_resource: my_vol }
+      mountpoint: /dev/vdc
+
+outputs:
+  port: 
+    description: The network port of the instance
+    value: { get_resource: my_instance_port }
+  ip:
+    description: The ip address of the instance
+    value: { get_attr: [my_instance,first_address] }

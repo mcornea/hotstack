@@ -1,0 +1,119 @@
+heat_template_version: 2013-05-23
+
+description: Template to do sanity check of a deployed Openstack
+
+parameters:
+  key_name:
+    type: string
+    description: Name of an existing key pair to use for the server
+    constraints:
+      - custom_constraint: nova.keypair
+  flavor:
+    type: string
+    description: Flavor for the server to be created
+    default: m1.small
+    constraints:
+      - custom_constraint: nova.flavor
+  image:
+    type: string
+    description: Image ID or image name to use for the server
+    constraints:
+      - custom_constraint: glance.image
+  project_name:
+    type: string
+    description: Keystone project name
+  project_description:
+    type: string
+    description: Keystone project description
+  user_name:
+    type: string
+    description: Keystone user name
+  user_password:
+    type: string
+    description: Keystone user password
+  group_role:
+    type: string
+    description: role
+  providernet:
+    type: string
+    description: Provider network name
+    default: provider01
+  tenantnet_ext_tagged:
+    type: string
+    description: name of the tagged external network
+    default: external01
+  tenantnet_ext_flat:
+    type: string
+    description: name of the flat external network
+    default: external02
+  vol_size:
+    type: number
+    description: The size of the Cinder volume
+    default: 1
+
+resources:
+  project:
+    type: lib/keystone_project.yaml
+    properties:
+      project_name: {get_param: project_name}
+      project_description: {get_param: project_description}
+  user:
+    type: lib/keystone_user.yaml
+    properties:
+      user_name: {get_param: user_name}
+      user_password: {get_param: user_password}
+      group_role: {get_param: group_role}
+      group_role_project: {get_attr: [project,admin_project_id]}
+  tenant_net_ext_tagged:
+    type: lib/tenant_network.yaml
+    properties:
+      public_network: { get_param: tenantnet_ext_tagged }
+  tenant_net_ext_flat:
+    type: lib/tenant_network.yaml
+    properties:
+      public_network: { get_param: tenantnet_ext_flat }
+
+  vm01:
+    type: lib/instance_withvol.yaml
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key_name }
+      tenant_network: { get_attr: [tenant_net_ext_tagged, name] }
+      vol_size: { get_param: vol_size }
+  vm01_fip:
+    type: lib/floating_ip.yaml
+    properties:
+      port: { get_attr: [vm01, port] }
+      public_network: { get_param: tenantnet_ext_tagged }
+
+  vm02:
+    type: lib/instance_withvol.yaml
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key_name }
+      tenant_network: { get_attr: [tenant_net_ext_flat, name] }
+      vol_size: { get_param: vol_size }
+  vm02_fip:
+    type: lib/floating_ip.yaml
+    properties:
+      port: { get_attr: [vm02, port] }
+      public_network: { get_param: tenantnet_ext_flat }
+
+  vm03:
+    type: lib/instance_withvol.yaml
+    properties:
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key_name }
+      tenant_network: { get_param: providernet } 
+      vol_size: { get_param: vol_size }
+
+outputs:
+  vm01_ip:
+    description: The floating IP of vm01
+    value: { get_attr: [vm01_fip, ip] }
+  vm02_ip:
+    description: The floating IP of vm02
+    value: { get_attr: [vm02_fip, ip] }
