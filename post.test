@@ -7,7 +7,7 @@ init)
     swift upload test-container ~/instackenv.json 
 
     neutron net-create external01 --provider:network_type vlan  --provider:physical_network datacentre  --provider:segmentation_id 101 --router:external
-    neutron subnet-create --allocation-pool start=172.29.0.100,end=172.29.0.150 --gateway 172.29.0.254 --enable_dhcp=False external01 172.29.0.0/24
+    neutron subnet-create --allocation-pool start=172.16.18.138,end=172.16.18.200 --gateway 172.16.18.254 --enable_dhcp=False external01 172.16.18.128/25
     neutron router-create router01
     neutron router-gateway-set router01 external01
 
